@@ -94,7 +94,8 @@ class LFUPolicy(Policy[K]):
 
     def get_key_to_evict(self) -> K | None:
         if len(self._key_counter) > self.capacity:
-            candidates = {k: v for k, v in self._key_counter.items() if k != self._last_new_key}
+            candidates = dict(self._key_counter)
+            candidates.pop(self._last_new_key, None)
             pool = candidates if candidates else self._key_counter
             return min(pool, key=lambda k: pool[k])
         return None
