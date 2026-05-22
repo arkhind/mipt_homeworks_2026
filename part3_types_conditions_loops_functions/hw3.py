@@ -24,6 +24,15 @@ EXPENSE_CATEGORIES = {
 
 financial_transactions_storage: list[dict[str, Any]] = []
 
+_DATE_PARTS = 3
+_YEAR_STR_LEN = 4
+_MAX_MONTH = 12
+_CATEGORY_PARTS = 2
+_INCOME_CMD_ARGS = 3
+_COST_CMD_ARGS = 4
+_STATS_CMD_ARGS = 2
+_COST_CATEGORIES_CMD_ARGS = 2
+
 
 def is_leap_year(year: int) -> bool:
 
@@ -36,15 +45,15 @@ def is_leap_year(year: int) -> bool:
 
 def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
     parts = maybe_dt.split("-")
-    if len(parts) != 3:
+    if len(parts) != _DATE_PARTS:
         return None
     day_str, month_str, year_str = parts
     if not day_str.isdigit() or not month_str.isdigit() or not year_str.isdigit():
         return None
-    if len(year_str) != 4:
+    if len(year_str) != _YEAR_STR_LEN:
         return None
     day, month, year = int(day_str), int(month_str), int(year_str)
-    if year < 1 or month < 1 or month > 12:
+    if year < 1 or month < 1 or month > _MAX_MONTH:
         return None
     days_in_month = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     if is_leap_year(year):
@@ -75,7 +84,7 @@ def cost_handler(category_name: str, amount: float, income_date: str) -> str:
         financial_transactions_storage.append({})
         return INCORRECT_DATE_MSG
     cat_parts = category_name.split("::")
-    if len(cat_parts) != 2:
+    if len(cat_parts) != _CATEGORY_PARTS:
         financial_transactions_storage.append({})
         return NOT_EXISTS_CATEGORY
     common_cat, target_cat = cat_parts
@@ -140,9 +149,7 @@ def stats_handler(report_date: str) -> str:
             if is_cost:
                 month_expense += amount
                 cat = entry["category"]
-                if cat not in category_totals:
-                    category_totals[cat] = 0.0
-                category_totals[cat] += amount
+                category_totals[cat] = category_totals.get(cat, 0.0) + amount
             else:
                 month_income += amount
 
@@ -190,35 +197,42 @@ def _parse_amount(s: str) -> float | None:
     return float(s)
 
 
+def _handle_income_cmd(parts: list[str]) -> str:
+    if len(parts) != _INCOME_CMD_ARGS:
+        return UNKNOWN_COMMAND_MSG
+    amount = _parse_amount(parts[1])
+    if amount is None:
+        return UNKNOWN_COMMAND_MSG
+    return income_handler(amount, parts[2])
+
+
+def _handle_cost_cmd(parts: list[str]) -> str:
+    if len(parts) == _COST_CATEGORIES_CMD_ARGS and parts[1] == "categories":
+        return cost_categories_handler()
+    if len(parts) != _COST_CMD_ARGS:
+        return UNKNOWN_COMMAND_MSG
+    amount = _parse_amount(parts[2])
+    if amount is None:
+        return UNKNOWN_COMMAND_MSG
+    return cost_handler(parts[1], amount, parts[3])
+
+
+def _handle_stats_cmd(parts: list[str]) -> str:
+    if len(parts) != _STATS_CMD_ARGS:
+        return UNKNOWN_COMMAND_MSG
+    return stats_handler(parts[1])
+
+
 def _handle_command(parts: list[str]) -> str:
     if not parts:
         return UNKNOWN_COMMAND_MSG
-
     cmd = parts[0]
-
     if cmd == "income":
-        if len(parts) != 3:
-            return UNKNOWN_COMMAND_MSG
-        amount = _parse_amount(parts[1])
-        if amount is None:
-            return UNKNOWN_COMMAND_MSG
-        return income_handler(amount, parts[2])
-
+        return _handle_income_cmd(parts)
     if cmd == "cost":
-        if len(parts) == 2 and parts[1] == "categories":
-            return cost_categories_handler()
-        if len(parts) != 4:
-            return UNKNOWN_COMMAND_MSG
-        amount = _parse_amount(parts[2])
-        if amount is None:
-            return UNKNOWN_COMMAND_MSG
-        return cost_handler(parts[1], amount, parts[3])
-
+        return _handle_cost_cmd(parts)
     if cmd == "stats":
-        if len(parts) != 2:
-            return UNKNOWN_COMMAND_MSG
-        return stats_handler(parts[1])
-
+        return _handle_stats_cmd(parts)
     return UNKNOWN_COMMAND_MSG
 
 
