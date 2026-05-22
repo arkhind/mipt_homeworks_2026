@@ -35,7 +35,6 @@ _COST_CATEGORIES_CMD_ARGS = 2
 
 
 def is_leap_year(year: int) -> bool:
-
     if year % 400 == 0:
         return True
     if year % 100 == 0:
