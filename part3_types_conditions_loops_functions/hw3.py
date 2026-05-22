@@ -34,9 +34,12 @@ _STATS_CMD_ARGS = 2
 _COST_CATEGORIES_CMD_ARGS = 2
 _CATEGORY_KEY = "category"
 _LEAP_FEB_DAYS = 29
+_FEB_MONTH = 2
 _KEEP_RUNNING = True
 
 _DateTuple = tuple[int, int, int]
+_MonthStats = tuple[float, float]
+_StatsResult = tuple[float, float, _MonthStats, dict[str, float]]
 
 
 def is_leap_year(year: int) -> bool:
@@ -48,7 +51,7 @@ def is_leap_year(year: int) -> bool:
 
 
 def _days_in_month(month: int, year: int) -> int:
-    if month == 2:
+    if month == _FEB_MONTH:
         return _LEAP_FEB_DAYS if is_leap_year(year) else 28
     if month in (4, 6, 9, 11):
         return 30
@@ -139,6 +142,7 @@ def _is_same_month(date_tuple: _DateTuple, report_ym: tuple[int, int]) -> bool:
 def _accumulate_monthly_entry(
     entry: dict[str, Any],
     amount: float,
+    *,
     is_cost: bool,
 ) -> tuple[float, float, str]:
     if not is_cost:
@@ -164,18 +168,18 @@ def _process_storage_entry(
     expense = amount * is_cost
     if not _is_same_month(date_tuple, report_ym):
         return income, expense, 0, 0
-    mi, me, cat = _accumulate_monthly_entry(entry, amount, is_cost)
+    mi, me, cat = _accumulate_monthly_entry(entry, amount, is_cost=is_cost)
     if cat:
         category_totals[cat] = category_totals.get(cat, 0) + me
     return income, expense, mi, me
 
 
-def _collect_stats(parsed_report: _DateTuple):
+def _collect_stats(parsed_report: _DateTuple) -> _StatsResult:
     report_ym = (parsed_report[1], parsed_report[2])
-    total_income = 0
-    total_expense = 0
-    month_income = 0
-    month_expense = 0
+    total_income: float = 0
+    total_expense: float = 0
+    month_income: float = 0
+    month_expense: float = 0
     category_totals: dict[str, float] = {}
     for entry in financial_transactions_storage:
         if not entry:
@@ -196,7 +200,7 @@ def _build_category_lines(category_totals: dict[str, float]) -> list[str]:
     return lines
 
 
-def _format_stats(report_date: str, stats) -> str:  # noqa: ANN001
+def _format_stats(report_date: str, stats: _StatsResult) -> str:
     total_income, total_expense, month_stats, category_totals = stats
     month_income, month_expense = month_stats
     total_capital = round(total_income - total_expense, 2)
