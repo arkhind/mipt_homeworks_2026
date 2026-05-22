@@ -63,7 +63,12 @@ def extract_date(maybe_dt: str) -> _DateTuple | None:
     if len(parts) != _DATE_PARTS:
         return None
     day_str, month_str, year_str = parts
-    parts_valid = day_str.isdigit() and month_str.isdigit() and year_str.isdigit() and len(year_str) == _YEAR_STR_LEN
+    parts_valid = (
+        day_str.isdigit()
+        and month_str.isdigit()
+        and year_str.isdigit()
+        and len(year_str) == _YEAR_STR_LEN
+    )
     if not parts_valid:
         return None
     day = int(day_str)
