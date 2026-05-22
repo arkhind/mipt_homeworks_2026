@@ -68,8 +68,6 @@ class CircuitBreaker:
 
             try:
                 result = func(*args, **kwargs)
-                failure_count = 0
-                return result
             except Exception as e:
                 if isinstance(e, self.triggers_on):
                     failure_count += 1
@@ -77,6 +75,9 @@ class CircuitBreaker:
                         blocked_at = datetime.now(UTC)
                         raise BreakerError(TOO_MUCH, func_name, blocked_at) from e
                 raise
+            else:
+                failure_count = 0
+                return result
 
         return wrapper  # type: ignore[return-value]
 
