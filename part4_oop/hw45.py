@@ -85,13 +85,18 @@ class LRUPolicy(Policy[K]):
 class LFUPolicy(Policy[K]):
     capacity: int = 5
     _key_counter: dict[K, int] = field(default_factory=dict, init=False)
+    _last_new_key: Any = field(default=None, init=False)
 
     def register_access(self, key: K) -> None:
+        if key not in self._key_counter:
+            self._last_new_key = key
         self._key_counter[key] = self._key_counter.get(key, 0) + 1
 
     def get_key_to_evict(self) -> K | None:
         if len(self._key_counter) > self.capacity:
-            return min(self._key_counter, key=lambda k: self._key_counter[k])
+            candidates = {k: v for k, v in self._key_counter.items() if k != self._last_new_key}
+            pool = candidates if candidates else self._key_counter
+            return min(pool, key=lambda k: pool[k])
         return None
 
     def remove_key(self, key: K) -> None:
@@ -99,6 +104,7 @@ class LFUPolicy(Policy[K]):
 
     def clear(self) -> None:
         self._key_counter.clear()
+        self._last_new_key = None
 
     @property
     def has_keys(self) -> bool:
