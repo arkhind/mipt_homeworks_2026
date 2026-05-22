@@ -1,12 +1,96 @@
-# Итоговый проект "GigaVibeMiptCode"
+# GigaVibeMiptCode
 
-Актуальный текст задания доступен [здесь](https://docs.google.com/document/d/1hjEwsQd8m6-esJA37ZkGNIwK9Rn2edBC0MozFxpqxRg/edit?usp=sharing).
+Консольный ИИ-ассистент с поддержкой OpenAI-совместимых LLM.
 
-**Дедлайн загрузки решений: 23:59 22 мая.**
+## Функционал
 
-В рамках проекта вам предстоит создать собственного ИИ-ассистента с консольным интерфейсом, который будет обрабатывать пользовательский ввод, отправлять запросы к LLM и выводить пользователю ответы в разных режимах.
+- Чат с историей сообщений
+- Контроль длины контекста (по количеству сообщений и символов)
+- Конфигурация через переменные окружения или `config.yaml`
+- Прерывание запроса к модели через `Ctrl+C`
+- Прикрепление файлов к сообщению через `@::путь/к/файлу::`
+- Почанковая обработка больших файлов (`/file_chunk`)
+- Стриминг ответов модели в реальном времени
+- Команды `/reset` и `\q`
 
-Решения необходимо подгрузить в форки данного репозитория.
+## Установка
 
-Требования к линтерам смягчены: используйте ruff check с конфигурацией из нового ruff.toml
-Проверку типов выполняем через простой запуск mypy.
+```bash
+pip install -r requirements.txt
+```
+
+## Конфигурация
+
+**Через переменные окружения** (приоритет над yaml):
+
+```bash
+export API_KEY=your_key_here
+export API_HOST=http://localhost:11434/v1/
+export MODEL=gemma3
+export LIMIT_CHARS=2000
+export LIMIT_MESSAGE=20
+export TEMPERATURE=0.7
+```
+
+**Через `config.yaml`** (скопируйте из примера):
+
+```bash
+cp config.yaml config.yaml
+# отредактируйте config.yaml
+```
+
+Формат файла:
+
+```yaml
+api_key: your_api_key_here
+api_host: http://localhost:11434/v1/
+model: gemma3
+limit_message: 20
+limit_chars: 2000
+temperature: 0.7
+system_prompt: You are a helpful assistant.
+```
+
+> `config.yaml` содержит секреты — он добавлен в `.gitignore`.
+
+## Запуск
+
+```bash
+cd final_project
+python main.py
+```
+
+## Команды
+
+| Команда | Описание |
+|---|---|
+| `\q` | Выход из программы |
+| `/reset` | Очистить историю и экран |
+| `/file_chunk` | Обработать файл по абзацам |
+| `/file_chunk paragraph=3` | По 3 абзаца за раз |
+| `/file_chunk len=500` | По 500 символов за раз |
+| `/file_chunk -y` | Авто-режим (без паузы между чанками) |
+| `@::путь/к/файлу::` | Прикрепить содержимое файла к сообщению |
+
+## Тесты
+
+```bash
+cd final_project
+pytest --cov=. --cov-report=html
+```
+
+Отчёт о покрытии будет в папке `htmlcov/`.
+
+## Локальная модель (Ollama)
+
+```bash
+# Установить Ollama: https://ollama.com/download
+ollama pull gemma3:4b
+```
+
+Затем задать в конфиге:
+```yaml
+api_host: http://localhost:11434/v1/
+model: gemma3:4b
+api_key: ollama
+```
