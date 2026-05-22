@@ -49,6 +49,17 @@ class _BreakerWrapper:
         self._failure_count = 0
         self._blocked_at: datetime | None = None
 
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        self._check_blocked()
+        try:
+            result = self._func(*args, **kwargs)
+        except Exception as exc:
+            self._on_error(exc)
+            raise
+        else:
+            self._failure_count = 0
+            return result
+
     def _check_blocked(self) -> None:
         if self._blocked_at is None:
             return
@@ -66,17 +77,6 @@ class _BreakerWrapper:
         if self._failure_count >= self._critical_count:
             self._blocked_at = datetime.now(UTC)
             raise BreakerError(TOO_MUCH, self._func_name, self._blocked_at) from exc
-
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        self._check_blocked()
-        try:
-            result = self._func(*args, **kwargs)
-        except Exception as exc:
-            self._on_error(exc)
-            raise
-        else:
-            self._failure_count = 0
-            return result
 
 
 class CircuitBreaker:
@@ -99,7 +99,9 @@ class CircuitBreaker:
         self.triggers_on = triggers_on
 
     def __call__(self, func: CallableWithMeta[P, R_co]) -> CallableWithMeta[P, R_co]:
-        return _BreakerWrapper(func, self.critical_count, self.time_to_recover, self.triggers_on)  # type: ignore[return-value]
+        return _BreakerWrapper(
+            func, self.critical_count, self.time_to_recover, self.triggers_on,
+        )
 
 
 circuit_breaker = CircuitBreaker(5, 30, Exception)
