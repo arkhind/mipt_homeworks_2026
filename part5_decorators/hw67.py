@@ -28,6 +28,57 @@ class BreakerError(Exception):
         self.block_time = block_time
 
 
+class _BreakerWrapper:
+    __name__: str
+    __module__: str
+    __doc__: str | None
+
+    def __init__(
+        self,
+        func: CallableWithMeta,  # type: ignore[type-arg]
+        critical_count: int,
+        time_to_recover: int,
+        triggers_on: type[Exception],
+    ) -> None:
+        functools.update_wrapper(self, func)
+        self._func = func
+        self._func_name = f"{func.__module__}.{func.__name__}"
+        self._critical_count = critical_count
+        self._time_to_recover = time_to_recover
+        self._triggers_on = triggers_on
+        self._failure_count = 0
+        self._blocked_at: datetime | None = None
+
+    def _check_blocked(self) -> None:
+        if self._blocked_at is None:
+            return
+        elapsed = (datetime.now(UTC) - self._blocked_at).total_seconds()
+        if elapsed >= self._time_to_recover:
+            self._blocked_at = None
+            self._failure_count = 0
+        else:
+            raise BreakerError(TOO_MUCH, self._func_name, self._blocked_at)
+
+    def _on_error(self, exc: Exception) -> None:
+        if not isinstance(exc, self._triggers_on):
+            return
+        self._failure_count += 1
+        if self._failure_count >= self._critical_count:
+            self._blocked_at = datetime.now(UTC)
+            raise BreakerError(TOO_MUCH, self._func_name, self._blocked_at) from exc
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        self._check_blocked()
+        try:
+            result = self._func(*args, **kwargs)
+        except Exception as exc:
+            self._on_error(exc)
+            raise
+        else:
+            self._failure_count = 0
+            return result
+
+
 class CircuitBreaker:
     def __init__(
         self,
@@ -48,38 +99,7 @@ class CircuitBreaker:
         self.triggers_on = triggers_on
 
     def __call__(self, func: CallableWithMeta[P, R_co]) -> CallableWithMeta[P, R_co]:
-        failure_count = 0
-        blocked_at: datetime | None = None
-
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            nonlocal failure_count, blocked_at
-
-            func_name = f"{func.__module__}.{func.__name__}"
-
-            if blocked_at is not None:
-                now = datetime.now(UTC)
-                elapsed = (now - blocked_at).total_seconds()
-                if elapsed >= self.time_to_recover:
-                    blocked_at = None
-                    failure_count = 0
-                else:
-                    raise BreakerError(TOO_MUCH, func_name, blocked_at)
-
-            try:
-                result = func(*args, **kwargs)
-            except Exception as e:
-                if isinstance(e, self.triggers_on):
-                    failure_count += 1
-                    if failure_count >= self.critical_count:
-                        blocked_at = datetime.now(UTC)
-                        raise BreakerError(TOO_MUCH, func_name, blocked_at) from e
-                raise
-            else:
-                failure_count = 0
-                return result
-
-        return wrapper  # type: ignore[return-value]
+        return _BreakerWrapper(func, self.critical_count, self.time_to_recover, self.triggers_on)  # type: ignore[return-value]
 
 
 circuit_breaker = CircuitBreaker(5, 30, Exception)
