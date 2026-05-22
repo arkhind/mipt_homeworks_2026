@@ -100,7 +100,10 @@ class CircuitBreaker:
 
     def __call__(self, func: CallableWithMeta[P, R_co]) -> CallableWithMeta[P, R_co]:
         return _BreakerWrapper(
-            func, self.critical_count, self.time_to_recover, self.triggers_on,
+            func,
+            self.critical_count,
+            self.time_to_recover,
+            self.triggers_on,
         )
 
 
